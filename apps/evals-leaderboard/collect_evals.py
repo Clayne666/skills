@@ -221,6 +221,9 @@ class EvalsCollector:
         text = Path(path).read_text(encoding="utf-8", errors="ignore")
         return self._parse_front_matter(text)
 
+    # Cap front matter size to limit parser resource use on hostile model cards/PRs.
+    _MAX_FRONT_MATTER_BYTES = 256_000
+
     @staticmethod
     def _parse_front_matter(content: str) -> Dict[str, Any]:
         content = content.lstrip("\ufeff")
@@ -235,10 +238,19 @@ class EvalsCollector:
         if end_idx is None:
             return {}
         front_matter = "\n".join(lines[1:end_idx])
+        if len(front_matter.encode("utf-8", errors="ignore")) > EvalsCollector._MAX_FRONT_MATTER_BYTES:
+            return {}
         try:
-            data = yaml.safe_load(front_matter) or {}
+            # SafeLoader still expands YAML aliases (billion laughs). Reject aliases.
+            class _NoAliasSafeLoader(yaml.SafeLoader):
+                def compose_node(self, parent, index):  # type: ignore[override]
+                    if self.check_event(yaml.AliasEvent):
+                        raise yaml.YAMLError("YAML aliases are not allowed in model-index front matter")
+                    return super().compose_node(parent, index)
+
+            data = yaml.load(front_matter, Loader=_NoAliasSafeLoader) or {}
             return data if isinstance(data, dict) else {}
-        except yaml.YAMLError:
+        except (yaml.YAMLError, RecursionError, MemoryError, ValueError):
             return {}
 
     def _fetch_pull_requests(self, repo_id: str) -> List[Dict[str, Any]]:
