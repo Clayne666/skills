@@ -272,9 +272,12 @@ uv run scripts/paper_manager.py link \
   --repo-id "username/repo-name" \
   --repo-type "model|dataset|space" \
   --arxiv-id "2301.12345" \
-  [--citation "Full citation text"] \
-  [--create-pr]
+  [--citation "Full citation text"]
 ```
+
+> `--create-pr` is not implemented. The CLI refuses that flag rather than
+> force-committing to the default branch. Open a Hub PR manually if you need review.
+
 
 **Claim Authorship:**
 ```bash

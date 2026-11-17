@@ -132,7 +132,7 @@ class PaperManager:
             arxiv_id: arXiv identifier
             repo_type: Type of repository ("model", "dataset", or "space")
             citation: Optional full citation text
-            create_pr: Create a PR instead of direct commit
+            create_pr: If True, refuse to write (PR flow is not implemented)
 
         Returns:
             dict: Operation status
@@ -164,8 +164,15 @@ class PaperManager:
             commit_message = f"Add paper reference: arXiv:{arxiv_id}"
 
             if create_pr:
-                # Create PR (not implemented in basic version)
-                print("PR creation not yet implemented. Committing directly.")
+                # Refuse to silently force-commit when the caller asked for a PR.
+                # Direct upload would bypass the review workflow the flag implies.
+                message = (
+                    "PR creation is not implemented. Refusing to commit directly "
+                    "because --create-pr was set. Re-run without --create-pr to "
+                    "commit to the default branch, or open a PR manually."
+                )
+                print(f"Error: {message}")
+                return {"status": "error", "message": message}
 
             self.api.upload_file(
                 path_or_fileobj=updated_content.encode('utf-8'),
@@ -506,7 +513,11 @@ def main():
     link_parser.add_argument("--arxiv-id", help="Single arXiv ID")
     link_parser.add_argument("--arxiv-ids", help="Comma-separated arXiv IDs")
     link_parser.add_argument("--citation", help="Full citation text")
-    link_parser.add_argument("--create-pr", action="store_true", help="Create PR instead of direct commit")
+    link_parser.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Not implemented; refuses to commit (use without this flag to write directly)",
+    )
 
     # Create command
     create_parser = subparsers.add_parser("create", help="Create research article")
